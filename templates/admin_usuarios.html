@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Administrar Usuarios{% endblock %}
+
+<!-- {% block page_title %}Administrar Usuarios{% endblock %} -->
+
+<!-- {% block header_stats %}
+    
+{% endblock %} -->
+
+{% block content %}
+    <div class="section" style="display:flex">
+        <div class="stat">
+            <span class="stat-number">{{ usuarios|length }}</span>
+            <span class="stat-label">Total Usuarios</span>
+        </div>
+        <div class="stat">
+            <span class="stat-number">{{ usuarios|selectattr('is_active')|list|length }}</span>
+            <span class="stat-label">Activos</span>
+        </div>
+        <div class="stat">
+            <span class="stat-number">{{ usuarios|selectattr('is_admin')|list|length }}</span>
+            <span class="stat-label">Administradores</span>
+        </div>
+
+    </div>
+    <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 class="section-title">Lista de Usuarios</h2>
+            <a href="{{ url_for('nuevo_usuario') }}" class="btn-login" style="width: auto;">
+                Nuevo Usuario
+            </a>
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8f9fa; border-bottom: 2px solid #667eea;">
+                        <th style="padding: 1rem; text-align: left;">ID</th>
+                        <th style="padding: 1rem; text-align: left;">Usuario</th>
+                        <th style="padding: 1rem; text-align: left;">Email</th>
+                        <th style="padding: 1rem; text-align: left;">Rol</th>
+                        <th style="padding: 1rem; text-align: left;">Estado</th>
+                        <th style="padding: 1rem; text-align: left;">Creado</th>
+                        <th style="padding: 1rem; text-align: left;">Último Login</th>
+                        <th style="padding: 1rem; text-align: left;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr style="border-bottom: 1px solid #eee; {% if not usuario.is_active %}opacity: 0.6; background: #f8f9fa;{% endif %}">
+                        <td style="padding: 1rem;">{{ usuario.id }}</td>
+                        <td style="padding: 1rem;">
+                            <strong>{{ usuario.username }}</strong>
+                            {% if usuario.id == current_user.id %}<br><small>(Tú)</small>{% endif %}
+                        </td>
+                        <td style="padding: 1rem;">{{ usuario.email }}</td>
+                        <td style="padding: 1rem;">
+                            <form method="POST" action="{{ url_for('cambiar_rol_usuario', user_id=usuario.id) }}" 
+                                  style="display: flex; gap: 0.5rem; align-items: center;">
+                                <select name="role" onchange="this.form.submit()" 
+                                        {% if usuario.id == current_user.id %}disabled{% endif %}
+                                        style="padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid #ddd;">
+                                    <option value="usuario" {% if usuario.role == 'usuario' %}selected{% endif %}>
+                                        Usuario
+                                    </option>
+                                    <option value="admin" {% if usuario.role == 'admin' %}selected{% endif %}>
+                                        Admin
+                                    </option>
+                                </select>
+                            </form>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <span class="badge {% if usuario.is_active %}badge-success{% else %}badge-danger{% endif %}">
+                                {% if usuario.is_active %}Activo{% else %}Inactivo{% endif %}
+                            </span>
+                        </td>
+                        <td style="padding: 1rem;">{{ usuario.created_at.strftime('%d/%m/%Y') }}</td>
+                        <td style="padding: 1rem;">
+                            {% if usuario.last_login %}
+                                {{ usuario.last_login.strftime('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                                Nunca
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="display: flex; gap: 0.5rem;">
+                                {% if usuario.id != current_user.id %}
+                                    <a href="{{ url_for('toggle_usuario', user_id=usuario.id) }}" 
+                                       class="btn-action {% if usuario.is_active %}btn-warning{% else %}btn-success{% endif %}"
+                                       onclick="return confirm('¿{{ 'Desactivar' if usuario.is_active else 'Activar' }} este usuario?')">
+                                        {% if usuario.is_active %}❌{% else %}✅{% endif %}
+                                    </a>
+                                    
+                                    <a href="{{ url_for('eliminar_usuario', user_id=usuario.id) }}" 
+                                       class="btn-action btn-danger"
+                                       onclick="return confirm('¿Eliminar permanentemente a {{ usuario.username }}?')">
+                                        🗑️
+                                    </a>
+                                {% else %}
+                                    <span style="color: #6c757d; font-size: 0.9rem;">Tú</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

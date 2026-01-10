@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+<!-- {% block page_title %}Dashboard{% endblock %} -->
+
+
+
+{% block content %}
+
+    <div class="section" style="display:flex">
+        <div class="stat">
+            <span class="stat-number">{{ total_productos }}</span>
+            <span class="stat-label">Productos</span>
+        </div>
+        <div class="stat">
+            <span class="stat-number">{{ total_servicios }}</span>
+            <span class="stat-label">Servicios</span>
+        </div>
+        <div class="stat">
+            <span class="stat-number">{{ productos_vendidos }}</span>
+            <span class="stat-label">Prod. Vendidos</span>
+        </div>
+        <div class="stat">
+            <span class="stat-number">{{ servicios_vendidos }}</span>
+            <span class="stat-label">Serv. Vendidos</span>
+        </div>
+    </div>
+    
+
+    <!-- Sección de Información Personal -->
+    <div class="section">
+        <h2 class="section-title">Información Personal</h2>
+        <div class="info-personal">
+            <p><strong>Usuario:</strong> {{ current_user.username }}</p>
+            <p><strong>Email:</strong> {{ current_user.email }}</p>
+            <p><strong>Rol:</strong> 
+                {% if current_user.is_admin() %}
+                    <span style="color: #ffc107; font-weight: bold;">Administrador</span>
+                {% else %}
+                    <span style="color: #28a745; font-weight: bold;">Usuario</span>
+                {% endif %}
+            </p>
+            <p><strong>Último acceso:</strong> 
+                {% if current_user.last_login %}
+                    {{ current_user.last_login.strftime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                    Hoy
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    <!-- Sección de Productos -->
+    <div class="section">
+        <h2 class="section-title">Productos Registrados</h2>
+        <div class="cards-container">
+            {% for producto in productos %}
+            <div class="card">
+                <h3 class="card-title">{{ producto.nombre }}</h3>
+                <p>{{ producto.descripcion }}</p>
+                <div class="card-price">${{ "%.2f"|format(producto.precio) }}</div>
+                <div class="card-stats">
+                    <span>Stock: {{ producto.stock }}</span>
+                    <span>Vendidos: {{ producto.vendidos }}</span>
+                </div>
+                <button class="btn-vender" onclick="location.href='{{ url_for('vender', tipo='producto', id=producto.id) }}'">
+                    Vender Producto
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Sección de Servicios -->
+    <div class="section">
+        <h2 class="section-title">Servicios Ofrecidos</h2>
+        <div class="cards-container">
+            {% for servicio in servicios %}
+            <div class="card">
+                <h3 class="card-title">{{ servicio.nombre }}</h3>
+                <p>{{ servicio.descripcion }}</p>
+                <div class="card-price">${{ "%.2f"|format(servicio.precio) }}</div>
+                <div class="card-stats">
+                    <span>Duración: {{ servicio.duracion }}</span>
+                    <span>Vendidos: {{ servicio.vendidos }}</span>
+                </div>
+                <button class="btn-vender" onclick="location.href='{{ url_for('vender', tipo='servicio', id=servicio.id) }}'">
+                    Vender Servicio
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}

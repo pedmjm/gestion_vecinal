@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Servicio{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1 class="header-title">Nuevo Servicio</h1>
+    
+    <div class="user-menu-container">
+        <button class="user-btn" onclick="toggleMenu()">
+            {{ current_user.username }}
+            <span>▼</span>
+        </button>
+        <div class="dropdown-menu" id="userMenu">
+            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="#info">Mi Información</a>
+            <a href="{{ url_for('nuevo_producto') }}">Nuevo Producto</a>
+            <a href="{{ url_for('nuevo_servicio') }}">Nuevo Servicio</a>
+            <a href="{{ url_for('gestion_categorias') }}">Gestionar Categorías</a>
+            <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+        </div>
+    </div>
+</div>
+
+<div class="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="section">
+        <h2 class="section-title">Registrar Nuevo Servicio</h2>
+        
+        <form method="POST" action="{{ url_for('nuevo_servicio') }}" style="max-width: 600px; margin: 0 auto;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="nombre">Nombre del Servicio *</label>
+                    <input type="text" id="nombre" name="nombre" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="precio">Precio *</label>
+                    <input type="number" id="precio" name="precio" step="0.01" min="0" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="duracion">Duración</label>
+                    <input type="text" id="duracion" name="duracion" 
+                           placeholder="Ej: 1 hora, 30 minutos">
+                </div>
+                
+                <div class="form-group">
+                    <label for="categoria">Categoría</label>
+                    <select id="categoria" name="categoria" onchange="cargarSubcategorias()">
+                        <option value="">Seleccionar categoría</option>
+                        {% for categoria in categorias %}
+                            <option value="{{ categoria.id }}">{{ categoria.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="subcategoria">Subcategoría</label>
+                    <select id="subcategoria" name="subcategoria">
+                        <option value="">Seleccionar subcategoría</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" style="grid-column: span 2;">
+                    <label for="imagen_url">URL de la Imagen</label>
+                    <input type="url" id="imagen_url" name="imagen_url" 
+                           placeholder="https://ejemplo.com/imagen.jpg">
+                </div>
+                
+                <div class="form-group" style="grid-column: span 2;">
+                    <label for="descripcion">Descripción</label>
+                    <textarea id="descripcion" name="descripcion" rows="4" 
+                              placeholder="Descripción detallada del servicio..."></textarea>
+                </div>
+            </div>
+            
+            <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+                <button type="submit" class="btn-login">Guardar Servicio</button>
+                <button type="button" class="btn-login" 
+                        onclick="location.href='{{ url_for('dashboard') }}'" 
+                        style="background: #6c757d;">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function cargarSubcategorias() {
+    const categoriaId = document.getElementById('categoria').value;
+    const subcategoriaSelect = document.getElementById('subcategoria');
+    
+    if (!categoriaId) {
+        subcategoriaSelect.innerHTML = '<option value="">Seleccionar subcategoría</option>';
+        return;
+    }
+    
+    fetch(`/api/subcategorias/${categoriaId}`)
+        .then(response => response.json())
+        .then(data => {
+            subcategoriaSelect.innerHTML = '<option value="">Seleccionar subcategoría</option>';
+            data.forEach(subcat => {
+                const option = document.createElement('option');
+                option.value = subcat.id;
+                option.textContent = subcat.nombre;
+                subcategoriaSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
+</script>
+{% endblock %}

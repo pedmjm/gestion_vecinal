@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Categorías{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1 class="header-title">Gestión de Categorías</h1>
+    
+    <div class="user-menu-container">
+        <button class="user-btn" onclick="toggleMenu()">
+            {{ current_user.username }}
+            <span>▼</span>
+        </button>
+        <div class="dropdown-menu" id="userMenu">
+            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="#info">Mi Información</a>
+            <a href="{{ url_for('nuevo_producto') }}">Nuevo Producto</a>
+            <a href="{{ url_for('nuevo_servicio') }}">Nuevo Servicio</a>
+            <a href="{{ url_for('gestion_categorias') }}">Gestionar Categorías</a>
+            <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+        </div>
+    </div>
+</div>
+
+<div class="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="section">
+        <h2 class="section-title">Nueva Categoría</h2>
+        
+        <form method="POST" action="{{ url_for('nueva_categoria') }}" style="max-width: 400px;">
+            <div class="form-group">
+                <label for="nombre">Nombre de la Categoría</label>
+                <input type="text" id="nombre" name="nombre" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="tipo">Tipo</label>
+                <select id="tipo" name="tipo" required>
+                    <option value="">Seleccionar tipo</option>
+                    <option value="producto">Producto</option>
+                    <option value="servicio">Servicio</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="btn-login">Crear Categoría</button>
+        </form>
+    </div>
+    
+    <div class="section">
+        <h2 class="section-title">Nueva Subcategoría</h2>
+        
+        <form method="POST" action="{{ url_for('nueva_subcategoria') }}" style="max-width: 400px;">
+            <div class="form-group">
+                <label for="categoria_id">Categoría Padre</label>
+                <select id="categoria_id" name="categoria_id" required>
+                    <option value="">Seleccionar categoría</option>
+                    {% for categoria in categorias_productos %}
+                        <option value="{{ categoria.id }}">Producto: {{ categoria.nombre }}</option>
+                    {% endfor %}
+                    {% for categoria in categorias_servicios %}
+                        <option value="{{ categoria.id }}">Servicio: {{ categoria.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="nombre">Nombre de la Subcategoría</label>
+                <input type="text" id="nombre" name="nombre" required>
+            </div>
+            
+            <button type="submit" class="btn-login">Crear Subcategoría</button>
+        </form>
+    </div>
+    
+    <div class="section">
+        <h2 class="section-title">Categorías de Productos</h2>
+        <div class="cards-container">
+            {% for categoria in categorias_productos %}
+            <div class="card">
+                <h3 class="card-title">{{ categoria.nombre }}</h3>
+                <p><strong>Subcategorías:</strong></p>
+                <ul style="margin-left: 1rem; margin-top: 0.5rem;">
+                    {% for subcat in categoria.subcategorias %}
+                    <li>{{ subcat.nombre }}</li>
+                    {% endfor %}
+                </ul>
+                <p style="margin-top: 0.5rem;">
+                    <strong>Productos:</strong> {{ categoria.productos|length }}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2 class="section-title">Categorías de Servicios</h2>
+        <div class="cards-container">
+            {% for categoria in categorias_servicios %}
+            <div class="card">
+                <h3 class="card-title">{{ categoria.nombre }}</h3>
+                <p><strong>Subcategorías:</strong></p>
+                <ul style="margin-left: 1rem; margin-top: 0.5rem;">
+                    {% for subcat in categoria.subcategorias %}
+                    <li>{{ subcat.nombre }}</li>
+                    {% endfor %}
+                </ul>
+                <p style="margin-top: 0.5rem;">
+                    <strong>Servicios:</strong> {{ categoria.servicios|length }}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

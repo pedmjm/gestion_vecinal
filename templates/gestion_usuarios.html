@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1 class="header-title">Gestión de Usuarios</h1>
+    
+    <div class="header-content">
+        <div class="user-menu-container">
+            <button class="user-btn" onclick="toggleMenu()">
+                {{ current_user.username }}
+                <span>▼</span>
+            </button>
+            <div class="dropdown-menu" id="userMenu">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('perfil') }}">Mi Perfil</a>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('gestion_usuarios') }}">Usuarios</a>
+                <a href="{{ url_for('gestion_categorias') }}">Categorías</a>
+                {% endif %}
+                <a href="{{ url_for('nuevo_producto') }}">Nuevo Producto</a>
+                <a href="{{ url_for('nuevo_servicio') }}">Nuevo Servicio</a>
+                <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 class="section-title">Usuarios Registrados</h2>
+            <a href="{{ url_for('nuevo_usuario') }}" class="btn-login" style="width: auto;">
+                Nuevo Usuario
+            </a>
+        </div>
+        
+        <div class="cards-container">
+            {% for usuario in usuarios %}
+            <div class="card" style="position: relative;">
+                <!-- Indicador de estado -->
+                <div style="position: absolute; top: 10px; right: 10px;">
+                    <span style="
+                        display: inline-block;
+                        width: 10px;
+                        height: 10px;
+                        border-radius: 50%;
+                        background-color: {% if usuario.is_active %}#4CAF50{% else %}#dc3545{% endif %};
+                    " title="{% if usuario.is_active %}Activo{% else %}Inactivo{% endif %}"></span>
+                </div>
+                
+                <!-- Badge de rol -->
+                <div style="position: absolute; top: 10px; left: 10px;">
+                    <span style="
+                        display: inline-block;
+                        padding: 2px 8px;
+                        border-radius: 12px;
+                        font-size: 0.7rem;
+                        font-weight: bold;
+                        background-color: {% if usuario.role == 'admin' %}#667eea{% else %}#6c757d{% endif %};
+                        color: white;
+                    ">
+                        {{ usuario.role|upper }}
+                    </span>
+                </div>
+                
+                <h3 class="card-title" style="margin-top: 25px;">{{ usuario.username }}</h3>
+                <p><strong>Email:</strong> {{ usuario.email }}</p>
+                <p><strong>Registrado:</strong> {{ usuario.fecha_creacion.strftime('%d/%m/%Y') }}</p>
+                
+                <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    {% if usuario.id != current_user.id %}
+                    <!-- Cambiar rol -->
+                    <form method="POST" action="{{ url_for('cambiar_rol_usuario', user_id=usuario.id) }}" 
+                          style="flex: 1; min-width: 120px;">
+                        <select name="role" onchange="this.form.submit()" style="padding: 0.3rem; font-size: 0.8rem;">
+                            <option value="usuario" {% if usuario.role == 'usuario' %}selected{% endif %}>Usuario</option>
+                            <option value="admin" {% if usuario.role == 'admin' %}selected{% endif %}>Admin</option>
+                        </select>
+                    </form>
+                    
+                    <!-- Activar/Desactivar -->
+                    <a href="{{ url_for('toggle_usuario_activo', user_id=usuario.id) }}" 
+                       class="btn-login" 
+                       style="background: {% if usuario.is_active %}#ffc107{% else %}#4CAF50{% endif %}; 
+                              padding: 0.3rem 0.8rem; font-size: 0.8rem;">
+                        {% if usuario.is_active %}Desactivar{% else %}Activar{% endif %}
+                    </a>
+                    
+                    <!-- Eliminar -->
+                    <a href="{{ url_for('eliminar_usuario', user_id=usuario.id) }}" 
+                       class="btn-login" 
+                       onclick="return confirm('¿Estás seguro de eliminar este usuario?')"
+                       style="background: #dc3545; padding: 0.3rem 0.8rem; font-size: 0.8rem;">
+                        Eliminar
+                    </a>
+                    {% else %}
+                    <span style="color: #666; font-style: italic; padding: 0.5rem;">
+                        (Tu usuario)
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2 class="section-title">Estadísticas de Usuarios</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div class="card" style="text-align: center;">
+                <h3 style="color: #667eea; font-size: 2rem; margin: 0.5rem 0;">
+                    {{ usuarios|length }}
+                </h3>
+                <p style="color: #666; margin: 0;">Total Usuarios</p>
+            </div>
+            
+            <div class="card" style="text-align: center;">
+                <h3 style="color: #4CAF50; font-size: 2rem; margin: 0.5rem 0;">
+                    {{ usuarios|selectattr('is_active')|list|length }}
+                </h3>
+                <p style="color: #666; margin: 0;">Usuarios Activos</p>
+            </div>
+            
+            <div class="card" style="text-align: center;">
+                <h3 style="color: #ffc107; font-size: 2rem; margin: 0.5rem 0;">
+                    {{ usuarios|selectattr('role', 'equalto', 'admin')|list|length }}
+                </h3>
+                <p style="color: #666; margin: 0;">Administradores</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
