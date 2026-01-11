@@ -3,13 +3,19 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 from messenger import enviar_mensaje_whatsapp
 from models import db, User, Producto, Servicio, Venta, Categoria, Subcategoria
 from datetime import datetime
-import re
+import re, os, dotenv
 
 from utils import generar_contrasena_segura
+from funciones import api_bp, inicializar_estructura_chatbot, preparar_respuesta_whatsapp
+
+dotenv.load_dotenv()
+
+s_key = os.environ.get('SECRET_KEY')
+db_uri = os.environ.get('SQLALCHEMY_DATABASE_URI')
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'tu_clave_secreta_aqui_cambiala'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SECRET_KEY'] = s_key
+app.config['SQLALCHEMY_DATABASE_URI'] =  db_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Inicializar extensiones
@@ -17,6 +23,10 @@ db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+
+# REGISTRAR BLUEPRINT DE API
+app.register_blueprint(api_bp)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -213,7 +223,7 @@ def login():
                 return redirect(url_for('login'))
             
             login_user(user)
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.now()
             db.session.commit()
             flash('¡Inicio de sesión exitoso!', 'success')
             return redirect(url_for('dashboard'))
@@ -636,6 +646,133 @@ def perfil():
                          productos_creados=productos_creados,
                          servicios_creados=servicios_creados,
                          ventas_realizadas=ventas_realizadas)
+
+def crear_datos_iniciales():
+    """
+    Función actualizada para crear datos iniciales incluyendo estructura del chatbot.
+    """
+    # Crear usuario admin (código existente)
+    # ...
+    
+    # Inicializar estructura del chatbot
+    inicializar_estructura_chatbot()
+    
+    # Crear negocios de ejemplo
+    if Negocio.query.count() == 0:
+        # Obtener categorías
+        subcat_medicos = Subcategoria.query.filter_by(nombre='Médicos').first()
+        subcat_panaderias = Subcategoria.query.filter_by(nombre='Panaderías').first()
+        
+        # Negocio de ejemplo: Médico
+        if subcat_medicos:
+            negocio_medico = Negocio(
+                nombre='Dr. Carlos Freire',
+                descripcion_corta='Médico general con 15 años de experiencia. Atención primaria integral.',
+                descripcion_larga='Especialista en medicina general con enfoque preventivo. Atención a niños y adultos. Consultorio equipado con tecnología moderna.',
+                subcategoria_id=subcat_medicos.id,
+                tipo='servicio',
+                telefono_contacto='+593987654321',
+                whatsapp_contacto='+593987654321',
+                email_contacto='dr.carlos.freire@clinica.com',
+                direccion='Av. Principal 123, Centro Médico San José',
+                ubicacion='Quito, Ecuador',
+                url_presentacion='https://tuservidor.com/files/presentacion_carlos.pdf',
+                url_imagen_perfil='https://via.placeholder.com/300x300?text=Dr.+Carlos+Freire',
+                tipo_media='document',
+                servicios=json.dumps(['Consulta General', 'Control de Presión', 'Vacunación', 'Chequeos Anuales']),
+                horarios=json.dumps({'lunes_viernes': '8:00-18:00', 'sabado': '9:00-13:00'}),
+                precio_estimado=50.00,
+                palabras_clave='medico, doctor, salud, consulta, general, pediatria',
+                calificacion_promedio=4.8,
+                total_resenas=24,
+                created_by=admin_user.id
+            )
+            db.session.add(negocio_medico)
+        
+        # Negocio de ejemplo: Panadería
+        if subcat_panaderias:
+            negocio_panaderia = Negocio(
+                nombre='Panadería El Buen Pan',
+                descripcion_corta='Panadería tradicional con más de 20 años de experiencia. Productos frescos diariamente.',
+                descripcion_larga='Especialistas en panadería y pastelería tradicional. Contamos con más de 50 variedades de pan y 30 tipos de pasteles. Productos horneados con ingredientes naturales.',
+                subcategoria_id=subcat_panaderias.id,
+                tipo='producto',
+                telefono_contacto='+593912345678',
+                whatsapp_contacto='+593912345678',
+                direccion='Calle Panamérica 456, Sector Norte',
+                ubicacion='Guayaquil, Ecuador',
+                url_presentacion='https://tuservidor.com/files/catalogo_panaderia.pdf',
+                url_imagen_perfil='https://via.placeholder.com/300x300?text=Panaderia+El+Buen+Pan',
+                tipo_media='image',
+                servicios=json.dumps(['Panadería Tradicional', 'Pastelería Finа', 'Pedidos Especiales', 'Catering']),
+                horarios=json.dumps({'lunes_domingo': '5:00-22:00'}),
+                precio_estimado=2.50,
+                palabras_clave='panaderia, pan, pasteles, dulces, reposteria, horneados',
+                calificacion_promedio=4.5,
+                total_resenas=18,
+                created_by=admin_user.id
+            )
+            db.session.add(negocio_panaderia)
+        
+        db.session.commit()
+
+# ... (rutas existentes)
+
+# NUEVAS RUTAS PARA GESTIÓN DE NEGOCIOS (opcional, para administración web)
+@app.route('/admin/negocios')
+@login_required
+@admin_required
+def admin_negocios():
+    """
+    Panel de administración de negocios.
+    """
+    negocios = Negocio.query.order_by(Negocio.created_at.desc()).all()
+    return render_template('admin_negocios.html',
+                         page_title='Administrar Negocios',
+                         negocios=negocios)
+
+@app.route('/admin/negocios/nuevo', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def nuevo_negocio():
+    """
+    Crear nuevo negocio desde la interfaz web.
+    """
+    categorias = Categoria.query.filter_by(nivel=1).all()
+    
+    if request.method == 'POST':
+        try:
+            negocio = Negocio(
+                nombre=request.form.get('nombre'),
+                descripcion_corta=request.form.get('descripcion_corta'),
+                descripcion_larga=request.form.get('descripcion_larga'),
+                subcategoria_id=int(request.form.get('subcategoria_id')),
+                tipo=request.form.get('tipo'),
+                telefono_contacto=request.form.get('telefono_contacto'),
+                whatsapp_contacto=request.form.get('whatsapp_contacto'),
+                email_contacto=request.form.get('email_contacto'),
+                direccion=request.form.get('direccion'),
+                ubicacion=request.form.get('ubicacion'),
+                url_presentacion=request.form.get('url_presentacion'),
+                url_imagen_perfil=request.form.get('url_imagen_perfil'),
+                precio_estimado=float(request.form.get('precio_estimado', 0)),
+                created_by=current_user.id
+            )
+            
+            db.session.add(negocio)
+            db.session.commit()
+            flash('Negocio creado exitosamente', 'success')
+            return redirect(url_for('admin_negocios'))
+        
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al crear el negocio: {str(e)}', 'error')
+    
+    return render_template('nuevo_negocio.html',
+                         categorias=categorias,
+                         page_title='Nuevo Negocio')
+
+# ... (resto del código existente)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
