@@ -22,7 +22,7 @@ class Categoria(db.Model):
     descripcion = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     # Relaciones
     subcategorias = db.relationship('Subcategoria', backref='categoria', lazy=True, cascade='all, delete-orphan')
@@ -44,7 +44,7 @@ class Subcategoria(db.Model):
     keywords = db.Column(db.Text, nullable=True)  # Palabras clave para búsqueda
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     # Relaciones
     negocios = db.relationship('Negocio', backref='subcategoria', lazy=True)
@@ -104,7 +104,7 @@ class Negocio(db.Model):
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
     # Relaciones
     agendamientos = db.relationship('Agendamiento', backref='negocio', lazy=True)
@@ -147,7 +147,7 @@ class Agendamiento(db.Model):
     
     # Metadata
     origen = db.Column(db.String(50), default='whatsapp')  # 'whatsapp', 'web', 'telefono'
-    metadata = db.Column(db.Text, nullable=True)  # JSON con información adicional
+    _metadata = db.Column(db.Text, nullable=True)  # JSON con información adicional
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     
@@ -160,7 +160,7 @@ class Resena(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), nullable=False)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     nombre_cliente = db.Column(db.String(100), nullable=False)
     calificacion = db.Column(db.Integer, nullable=False)  # 1-5
     comentario = db.Column(db.Text, nullable=True)
@@ -193,20 +193,20 @@ class User(db.Model, UserMixin):
         self.is_active = not self.is_active
         return self.is_active
 
-class Categoria(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(100), nullable=False, unique=True)
-    tipo = db.Column(db.String(20))  # 'producto' o 'servicio'
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
-    created_at = db.Column(db.DateTime, default=datetime.now)
+# class Categoria(db.Model):
+#     id = db.Column(db.Integer, primary_key=True)
+#     nombre = db.Column(db.String(100), nullable=False, unique=True)
+#     tipo = db.Column(db.String(20))  # 'producto' o 'servicio'
+#     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+#     created_at = db.Column(db.DateTime, default=datetime.now)
     
-class Subcategoria(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(100), nullable=False)
-    categoria_id = db.Column(db.Integer, db.ForeignKey('categoria.id'), nullable=False)
-    categoria = db.relationship('Categoria', backref=db.backref('subcategorias', lazy=True))
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
-    created_at = db.Column(db.DateTime, default=datetime.now)
+# class Subcategoria(db.Model):
+#     id = db.Column(db.Integer, primary_key=True)
+#     nombre = db.Column(db.String(100), nullable=False)
+#     categoria_id = db.Column(db.Integer, db.ForeignKey('categoria.id'), nullable=False)
+#     categoria = db.relationship('Categoria', backref=db.backref('subcategorias', lazy=True))
+#     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+#     created_at = db.Column(db.DateTime, default=datetime.now)
 
 class Producto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -215,8 +215,8 @@ class Producto(db.Model):
     precio = db.Column(db.Float, nullable=False)
     stock = db.Column(db.Integer, default=0)
     vendidos = db.Column(db.Integer, default=0)
-    categoria_id = db.Column(db.Integer, db.ForeignKey('categoria.id'))
-    subcategoria_id = db.Column(db.Integer, db.ForeignKey('subcategoria.id'))
+    categoria_id = db.Column(db.Integer, db.ForeignKey('categorias.id'))
+    subcategoria_id = db.Column(db.Integer, db.ForeignKey('subcategorias.id'))
     categoria = db.relationship('Categoria', backref=db.backref('productos', lazy=True))
     subcategoria = db.relationship('Subcategoria', backref=db.backref('productos', lazy=True))
     imagen_url = db.Column(db.String(255))
@@ -231,8 +231,8 @@ class Servicio(db.Model):
     precio = db.Column(db.Float, nullable=False)
     vendidos = db.Column(db.Integer, default=0)
     duracion = db.Column(db.String(50))
-    categoria_id = db.Column(db.Integer, db.ForeignKey('categoria.id'))
-    subcategoria_id = db.Column(db.Integer, db.ForeignKey('subcategoria.id'))
+    categoria_id = db.Column(db.Integer, db.ForeignKey('categorias.id'))
+    subcategoria_id = db.Column(db.Integer, db.ForeignKey('subcategorias.id'))
     categoria = db.relationship('Categoria', backref=db.backref('servicios', lazy=True))
     subcategoria = db.relationship('Subcategoria', backref=db.backref('servicios', lazy=True))
     imagen_url = db.Column(db.String(255))

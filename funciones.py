@@ -288,7 +288,7 @@ def registrar_agendamiento():
             estado='pendiente',
             nota=data.get('nota', ''),
             origen='whatsapp_chatbot',
-            metadata=json.dumps(data.get('metadata', {}))
+            _metadata=json.dumps(data.get('_metadata', {}))
         )
         
         db.session.add(agendamiento)
