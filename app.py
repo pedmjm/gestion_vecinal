@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from messenger import enviar_mensaje_whatsapp
-from models import db, User, Producto, Servicio, Venta, Categoria, Subcategoria
+from models import Negocio, db, User, Producto, Servicio, Venta, Categoria, Subcategoria
 from datetime import datetime
 import re, os, dotenv
 
@@ -282,43 +282,59 @@ def vender(tipo, id):
 def nuevo_usuario():
     if request.method == 'POST':
         try:
-            username = request.form.get('username')
+            # Datos del Usuario
+            username = request.form.get('username') # Este es el WhatsApp/Telf
             password = request.form.get('password')
             role = request.form.get('role', 'usuario')
             
+            # Datos del Negocio (Nuevos campos del formulario)
+            nombre_negocio = request.form.get('nombre_negocio')
+            descripcion_negocio = request.form.get('descripcion_negocio')
+
             # Validaciones
             if User.query.filter_by(username=username).first():
-                flash('El nombre de usuario ya existe', 'error')
-                return redirect(url_for('nuevo_usuario'))
-                        
-            valid_pass, msg = validar_password(password)
-            if not valid_pass:
-                flash(msg, 'error')
+                flash('El número de WhatsApp (usuario) ya está registrado', 'error')
                 return redirect(url_for('nuevo_usuario'))
             
-            # Crear usuario
-            user = User(
-                username=username,
-                role=role
-            )
+            # Crear objeto usuario
+            user = User(username=username, role=role)
             user.set_password(password)
+            
+            db.session.add(user)
+            db.session.flush() # Esto asigna un ID a 'user' sin cerrar la transacción
 
-            msg = f"""Tu registro en la plataforma de vecinos ha sido realizada con exito. 
-            Registra tus productos y servicios en (url)
-            *usuario*: {username}
-            *clave*: {password}"""
-            enviar_msg = enviar_mensaje_whatsapp(username, msg)
-            if enviar_msg in (200, 201, 202):
-                db.session.add(user)
+            # Crear el Negocio asociado automáticamente
+            nuevo_negocio = Negocio(
+                nombre=nombre_negocio,
+                descripcion_corta=descripcion_negocio,
+                telefono_contacto=username, # Usamos el mismo whatsapp de login
+                usuario_id=user.id,
+                activo=True
+            )
+            db.session.add(nuevo_negocio)
+
+            # Notificación por WhatsApp
+            msg = f"""*¡Bienvenido a la Red Vecinal!* Tu cuenta ha sido creada con éxito.
+*Negocio:* {nombre_negocio}
+*Usuario:* {username}
+*Clave:* {password}
+Puedes gestionar tus productos aquí: (url)"""
+            
+            # Intentar enviar mensaje antes del commit final
+            status_wa = enviar_mensaje_whatsapp(username, msg)
+            
+            if status_wa in (200, 201, 202):
                 db.session.commit()
-            flash('Usuario creado exitosamente', 'success')
-            return redirect(url_for('admin_usuarios'))
-        
+                flash(f'Usuario y Negocio "{nombre_negocio}" creados exitosamente', 'success')
+                return redirect(url_for('admin_usuarios'))
+            else:
+                db.session.rollback()
+                flash('Error al enviar WhatsApp de bienvenida. Registro cancelado.', 'error')
+
         except Exception as e:
             db.session.rollback()
-            flash(f'Error al crear el usuario: {str(e)}', 'error')
-    # elif request.method == 'GET':
-        
+            flash(f'Error al crear el registro: {str(e)}', 'error')
+            
     return render_template('nuevo_usuario.html', psw=generar_contrasena_segura())
 
 @app.route('/admin/usuario/<int:user_id>/toggle')
@@ -862,28 +878,6 @@ def editar_servicio(id):
                          categorias=categorias,
                          page_title='Editar Servicio')
 
-@app.route('/api/vendedores/<int:subcategoria_id>')
-def get_vendedores_por_subcategoria(subcategoria_id):
-    # Buscamos productos y servicios que pertenezcan a esta subcategoría
-    productos = Producto.query.filter_by(subcategoria_id=subcategoria_id).all()
-    servicios = Servicio.query.filter_by(subcategoria_id=subcategoria_id).all()
-    
-    # Extraemos los IDs de los creadores (vendedores) únicos
-    vendedores_ids = set([p.created_by for p in productos] + [s.created_by for s in servicios])
-    
-    resultados = []
-    for v_id in vendedores_ids:
-        user = User.query.get(v_id)
-        if user:
-            # Aquí podrías personalizar para que devuelva el nombre del negocio 
-            # si tuvieras una tabla 'Negocio', pero usaremos el username según tu app.py
-            resultados.append({
-                'id': user.id,
-                'nombre_vendedor': user.username,
-                'rol': user.role
-            })
-            
-    return jsonify(resultados)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

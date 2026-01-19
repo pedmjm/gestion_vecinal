@@ -47,7 +47,6 @@ class Subcategoria(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     # Relaciones
-    negocios = db.relationship('Negocio', backref='subcategoria', lazy=True)
     children = db.relationship('Subcategoria', backref=db.backref('parent', remote_side=[id]), lazy=True)
     
     def __repr__(self):
@@ -58,13 +57,10 @@ class Negocio(db.Model):
     __tablename__ = 'negocios'
     
     id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer)
     nombre = db.Column(db.String(200), nullable=False)
     descripcion_corta = db.Column(db.String(300), nullable=False)
     descripcion_larga = db.Column(db.Text, nullable=True)
-    
-    # Categorización
-    subcategoria_id = db.Column(db.Integer, db.ForeignKey('subcategorias.id'), nullable=False)
-    tipo = db.Column(db.String(20), nullable=False)  # 'producto', 'servicio', 'mixto'
     
     # Contacto
     telefono_contacto = db.Column(db.String(20), nullable=True)
@@ -101,11 +97,6 @@ class Negocio(db.Model):
     destacado = db.Column(db.Boolean, default=False)
     verificacion = db.Column(db.String(20), default='pendiente')  # 'verificado', 'pendiente', 'rechazado'
     
-    # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    
     # Relaciones
     agendamientos = db.relationship('Agendamiento', backref='negocio', lazy=True)
     resenas = db.relationship('Resena', backref='negocio', lazy=True)
@@ -118,11 +109,9 @@ class Negocio(db.Model):
             'id': self.id,
             'nombre': self.nombre,
             'descripcion_corta': self.descripcion_corta,
-            'tipo': self.tipo,
             'telefono': self.telefono_contacto,
             'ubicacion': self.ubicacion,
             'calificacion': float(self.calificacion_promedio) if self.calificacion_promedio else None,
-            'visitas': self.visitas
         }
 
 # NUEVO MODELO: AGENDAMIENTO/LEAD
@@ -192,21 +181,6 @@ class User(db.Model, UserMixin):
     def toggle_active(self):
         self.is_active = not self.is_active
         return self.is_active
-
-# class Categoria(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     nombre = db.Column(db.String(100), nullable=False, unique=True)
-#     tipo = db.Column(db.String(20))  # 'producto' o 'servicio'
-#     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
-#     created_at = db.Column(db.DateTime, default=datetime.now)
-    
-# class Subcategoria(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     nombre = db.Column(db.String(100), nullable=False)
-#     categoria_id = db.Column(db.Integer, db.ForeignKey('categoria.id'), nullable=False)
-#     categoria = db.relationship('Categoria', backref=db.backref('subcategorias', lazy=True))
-#     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
-#     created_at = db.Column(db.DateTime, default=datetime.now)
 
 class Producto(db.Model):
     id = db.Column(db.Integer, primary_key=True)

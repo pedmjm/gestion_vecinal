@@ -5,7 +5,7 @@ Contiene endpoints y lógica para el agente IA en n8n.
 import time
 from flask import Blueprint, jsonify, request
 from flask_login import login_required
-from models import db, Categoria, Subcategoria, Negocio, Agendamiento, User
+from models import Producto, Servicio, db, Categoria, Subcategoria, Negocio, Agendamiento, User
 from datetime import datetime, timedelta
 import json
 
@@ -68,76 +68,44 @@ def inicializar_estructura_chatbot():
 # ============================================
 
 @api_bp.route('/categorias', methods=['GET'])
-def obtener_categorias():
-    """
-    Obtener todas las categorías principales con conteo de negocios.
-    Endpoint: GET /api/categorias
-    """
+def get_categorias():
+    """Retorna las categorías principales para el primer nivel del chatbot."""
     categorias = Categoria.query.filter_by(nivel=1).order_by(Categoria.orden).all()
-    
-    resultado = []
-    for cat in categorias:
-        # Contar negocios en esta categoría y sus subcategorías
-        total_negocios = Negocio.query.join(
-            Subcategoria, Negocio.subcategoria_id == Subcategoria.id
-        ).join(
-            Categoria, Subcategoria.categoria_id == Categoria.id
-        ).filter(
-            db.or_(
-                Categoria.id == cat.id,
-                Categoria.parent_id == cat.id
-            )
-        ).count()
-        
-        resultado.append({
-            'id': cat.id,
-            'nombre': cat.nombre,
-            'tipo': cat.tipo,
-            'negocios_count': total_negocios,
-            'subcategorias_count': len(cat.subcategorias)
-        })
+    return jsonify([
+        {'id': c.id, 'nombre': c.nombre, 'tipo': c.tipo} 
+        for c in categorias
+    ])
     
     return jsonify({'categorias': resultado, 'total': len(resultado)})
 
 @api_bp.route('/subcategorias/<int:categoria_id>', methods=['GET'])
-def obtener_subcategorias(categoria_id):
+def get_subcategorias(categoria_id):
+    """Retorna las subcategorías de una categoría específica."""
+    subcategorias = Subcategoria.query.filter_by(categoria_id=categoria_id).all()
+    return jsonify([
+        {'id': s.id, 'nombre': s.nombre} 
+        for s in subcategorias
+    ])
+
+@api_bp.route('/vendedores/<int:subcategoria_id>', methods=['GET'])
+def get_vendedores_por_subcategoria(subcategoria_id):
     """
-    Obtener subcategorías de una categoría específica.
-    Endpoint: GET /api/subcategorias/<categoria_id>
+    Busca negocios que tengan productos o servicios en una subcategoría.
     """
-    categoria = Categoria.query.get_or_404(categoria_id)
+    # Buscar IDs de usuarios que tienen items en esa subcategoría
+    prod_users = db.session.query(Producto.created_by).filter_by(subcategoria_id=subcategoria_id).distinct()
+    serv_users = db.session.query(Servicio.created_by).filter_by(subcategoria_id=subcategoria_id).distinct()
     
-    # Si es categoría nivel 1, obtener sus subcategorías nivel 2
-    if categoria.nivel == 1:
-        subcategorias = Subcategoria.query.filter_by(categoria_id=categoria_id, nivel=2).all()
-    # Si es subcategoría nivel 2, obtener especialidades nivel 3
-    elif categoria.nivel == 2:
-        subcategorias = Subcategoria.query.filter_by(parent_id=categoria_id, nivel=3).all()
-    else:
-        subcategorias = []
+    user_ids = [r[0] for r in prod_users.all()] + [r[0] for r in serv_users.all()]
+    user_ids = list(set(user_ids)) # Unificar IDs únicos
+
+    # Obtener los negocios de esos usuarios
+    negocios = Negocio.query.filter(Negocio.usuario_id.in_(user_ids), Negocio.activo == True).all()
     
-    resultado = []
-    for subcat in subcategorias:
-        # Contar negocios en esta subcategoría
-        negocios_count = Negocio.query.filter_by(subcategoria_id=subcat.id).count()
-        
-        resultado.append({
-            'id': subcat.id,
-            'nombre': subcat.nombre,
-            'nivel': subcat.nivel,
-            'negocios_count': negocios_count,
-            'has_children': Subcategoria.query.filter_by(parent_id=subcat.id).count() > 0
-        })
-    
-    return jsonify({
-        'categoria_padre': {
-            'id': categoria.id,
-            'nombre': categoria.nombre,
-            'nivel': categoria.nivel
-        },
-        'subcategorias': resultado,
-        'total': len(resultado)
-    })
+    return jsonify([
+        {'id': n.id, 'nombre': n.nombre, 'descripcion': n.descripcion_corta} 
+        for n in negocios
+    ])
 
 @api_bp.route('/buscar', methods=['GET'])
 def buscar_negocios():
@@ -263,57 +231,49 @@ def obtener_perfil_negocio(negocio_id):
     
     return jsonify(perfil)
 
+@api_bp.route('/negocios/<int:negocio_id>', methods=['GET'])
+def get_detalle_negocio(negocio_id):
+    """Retorna el perfil completo de un negocio para el Agente IA."""
+    negocio = Negocio.query.get_or_404(negocio_id)
+    
+    # Obtener productos y servicios para mostrar en el perfil
+    productos = Producto.query.filter_by(created_by=negocio.usuario_id).all()
+    servicios = Servicio.query.filter_by(created_by=negocio.usuario_id).all()
+    
+    items = []
+    for p in productos:
+        items.append({'nombre': p.nombre, 'precio': p.precio, 'tipo': 'producto'})
+    for s in servicios:
+        items.append({'nombre': s.nombre, 'precio': s.precio, 'tipo': 'servicio'})
+
+    return jsonify({
+        'id': negocio.id,
+        'nombre': negocio.nombre,
+        'descripcion': negocio.descripcion_corta,
+        'contacto': negocio.telefono_contacto,
+        'catalogo_resumen': items[:5] # Enviamos los primeros 5 para no saturar al agente
+    })
+
 @api_bp.route('/agendar', methods=['POST'])
 def registrar_agendamiento():
-    """
-    Registrar un nuevo agendamiento/lead.
-    Endpoint: POST /api/agendar
-    """
+    """Registra una solicitud de contacto/agenda desde el chatbot."""
+    data = request.json
     try:
-        data = request.get_json()
-        
-        # Validar datos requeridos
-        if not data.get('cliente_nombre') or not data.get('cliente_telefono'):
-            return jsonify({'error': 'Nombre y teléfono del cliente son requeridos'}), 400
-        
-        if not data.get('id_negocio'):
-            return jsonify({'error': 'ID de negocio es requerido'}), 400
-        
-        # Crear agendamiento
-        agendamiento = Agendamiento(
-            cliente_nombre=data['cliente_nombre'],
-            cliente_telefono=data['cliente_telefono'],
-            cliente_email=data.get('cliente_email', ''),
-            id_negocio=data['id_negocio'],
-            estado='pendiente',
-            nota=data.get('nota', ''),
-            origen='whatsapp_chatbot',
-            _metadata=json.dumps(data.get('_metadata', {}))
+        nuevo_age = Agendamiento(
+            cliente_nombre=data.get('nombre'),
+            cliente_telefono=data.get('telefono'),
+            negocio_id=data.get('negocio_id'),
+            requerimiento=data.get('nota'),
+            fecha_registro=datetime.now(),
+            estado='pendiente'
         )
-        
-        db.session.add(agendamiento)
-        
-        # Actualizar contador del negocio
-        negocio = Negocio.query.get(data['id_negocio'])
-        if negocio:
-            negocio.total_agendamientos += 1
-        
+        db.session.add(nuevo_age)
         db.session.commit()
-        
-        # Preparar respuesta
-        respuesta = {
-            'id': agendamiento.id,
-            'mensaje': 'Agendamiento registrado exitosamente',
-            'fecha': agendamiento.created_at.isoformat() if agendamiento.created_at else datetime.now().isoformat(),
-            'codigo_referencia': f"AG{agendamiento.id:06d}",
-            'notificacion': f"Nuevo agendamiento de {data['cliente_nombre']} para {negocio.nombre if negocio else 'el negocio'}."
-        }
-        
-        return jsonify(respuesta), 201
-    
+        return jsonify({'status': 'success', 'message': 'Agendamiento registrado'}), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Error al registrar agendamiento: {str(e)}'}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+    
 
 @api_bp.route('/estadisticas/chatbot', methods=['GET'])
 @login_required
@@ -474,4 +434,31 @@ def preparar_respuesta_whatsapp(negocio, tipo_mensaje='informacion'):
             }
         }
     
+    return {'type': 'text', 'text': 'Información no disponible'}
+
+
+# ============================================
+# 5. UTILIDADES DE FORMATO PARA WHATSAPP
+# ============================================
+
+def preparar_respuesta_whatsapp(tipo_mensaje, negocio=None, datos=None):
+    """
+    Genera el JSON estructurado que espera el nodo de WhatsApp en n8n
+    basado en los campos actuales de la tabla Negocio.
+    """
+    if tipo_mensaje == 'perfil_negocio' and negocio:
+        # Formato optimizado para mostrar el perfil tras la selección
+        texto = (
+            f"🏪 *{negocio.nombre}*\n"
+            f"📝 {negocio.descripcion_corta}\n\n"
+            f"📞 Contacto: {negocio.telefono_contacto}\n"
+            f"--------------------------\n"
+            f"¿Deseas que te contactemos con este negocio?"
+        )
+        return {'type': 'text', 'text': texto}
+    
+    elif tipo_mensaje == 'lista_simple':
+        # Para menús numerados devueltos por la IA
+        return {'type': 'text', 'text': datos}
+
     return {'type': 'text', 'text': 'Información no disponible'}
