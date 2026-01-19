@@ -863,7 +863,6 @@ def editar_servicio(id):
                          page_title='Editar Servicio')
 
 @app.route('/api/vendedores/<int:subcategoria_id>')
-@login_required
 def get_vendedores_por_subcategoria(subcategoria_id):
     # Buscamos productos y servicios que pertenezcan a esta subcategoría
     productos = Producto.query.filter_by(subcategoria_id=subcategoria_id).all()
