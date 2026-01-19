@@ -772,7 +772,119 @@ def nuevo_negocio():
                          categorias=categorias,
                          page_title='Nuevo Negocio')
 
-# ... (resto del código existente)
+# RUTAS PARA EDITAR PRODUCTOS
+@app.route('/productos/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_producto(id):
+    producto = Producto.query.get_or_404(id)
+    
+    # Verificar permisos (solo admin o el creador)
+    if not current_user.is_admin() and producto.created_by != current_user.id:
+        flash('No tienes permisos para editar este producto', 'error')
+        return redirect(url_for('dashboard'))
+    
+    categorias = Categoria.query.filter_by(tipo='producto').all()
+    
+    if request.method == 'POST':
+        try:
+            producto.nombre = request.form.get('nombre')
+            producto.descripcion = request.form.get('descripcion')
+            producto.precio = float(request.form.get('precio'))
+            producto.stock = int(request.form.get('stock', 0))
+            
+            # Manejo de categorías (opcional)
+            cat_id = request.form.get('categoria')
+            subcat_id = request.form.get('subcategoria')
+            
+            if cat_id:
+                producto.categoria_id = int(cat_id)
+            if subcat_id:
+                producto.subcategoria_id = int(subcat_id)
+                
+            producto.imagen_url = request.form.get('imagen_url')
+            
+            db.session.commit()
+            flash('Producto actualizado exitosamente', 'success')
+            return redirect(url_for('dashboard'))
+        
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar el producto: {str(e)}', 'error')
+    
+    return render_template('editar_item.html', 
+                         item=producto, 
+                         tipo='producto',
+                         categorias=categorias,
+                         page_title='Editar Producto')
+
+# RUTAS PARA EDITAR SERVICIOS
+@app.route('/servicios/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_servicio(id):
+    servicio = Servicio.query.get_or_404(id)
+    
+    # Verificar permisos
+    if not current_user.is_admin() and servicio.created_by != current_user.id:
+        flash('No tienes permisos para editar este servicio', 'error')
+        return redirect(url_for('dashboard'))
+    
+    categorias = Categoria.query.filter_by(tipo='servicio').all()
+    
+    if request.method == 'POST':
+        try:
+            servicio.nombre = request.form.get('nombre')
+            servicio.descripcion = request.form.get('descripcion')
+            servicio.precio = float(request.form.get('precio'))
+            servicio.duracion = request.form.get('duracion')
+            
+            # Manejo de categorías
+            cat_id = request.form.get('categoria')
+            subcat_id = request.form.get('subcategoria')
+            
+            if cat_id:
+                servicio.categoria_id = int(cat_id)
+            if subcat_id:
+                servicio.subcategoria_id = int(subcat_id)
+                
+            servicio.imagen_url = request.form.get('imagen_url')
+            
+            db.session.commit()
+            flash('Servicio actualizado exitosamente', 'success')
+            return redirect(url_for('dashboard'))
+        
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar el servicio: {str(e)}', 'error')
+    
+    return render_template('editar_item.html', 
+                         item=servicio, 
+                         tipo='servicio',
+                         categorias=categorias,
+                         page_title='Editar Servicio')
+
+@app.route('/api/vendedores/<int:subcategoria_id>')
+@login_required
+def get_vendedores_por_subcategoria(subcategoria_id):
+    # Buscamos productos y servicios que pertenezcan a esta subcategoría
+    productos = Producto.query.filter_by(subcategoria_id=subcategoria_id).all()
+    servicios = Servicio.query.filter_by(subcategoria_id=subcategoria_id).all()
+    
+    # Extraemos los IDs de los creadores (vendedores) únicos
+    vendedores_ids = set([p.created_by for p in productos] + [s.created_by for s in servicios])
+    
+    resultados = []
+    for v_id in vendedores_ids:
+        user = User.query.get(v_id)
+        if user:
+            # Aquí podrías personalizar para que devuelva el nombre del negocio 
+            # si tuvieras una tabla 'Negocio', pero usaremos el username según tu app.py
+            resultados.append({
+                'id': user.id,
+                'nombre_vendedor': user.username,
+                'rol': user.role
+            })
+            
+    return jsonify(resultados)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -106,19 +106,27 @@ function cargarSubcategorias() {
     }
     
     fetch(`/api/subcategorias/${categoriaId}`)
-        .then(response => response.json())
-        .then(data => {
-            subcategoriaSelect.innerHTML = '<option value="">Seleccionar subcategoría</option>';
-            data.forEach(subcat => {
-                const option = document.createElement('option');
-                option.value = subcat.id;
-                option.textContent = subcat.nombre;
-                subcategoriaSelect.appendChild(option);
-            });
-        })
-        .catch(error => {
-            console.error('Error:', error);
+    .then(response => response.json())
+    .then(data => {
+        subcategoriaSelect.innerHTML = '<option value="">Seleccionar subcategoría</option>';
+        
+        // Verificar si data es un array
+        const subcategorias = Array.isArray(data) ? data : (data.subcategorias || data.data || []);
+        
+        if (subcategorias.length === 0) {
+            console.warn('No se encontraron subcategorías');
+        }
+        
+        subcategorias.forEach(subcat => {
+            const option = document.createElement('option');
+            option.value = subcat.id;
+            option.textContent = subcat.nombre;
+            subcategoriaSelect.appendChild(option);
         });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
 }
 </script>
 {% endblock %}

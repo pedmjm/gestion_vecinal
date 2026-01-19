@@ -64,8 +64,8 @@
                     <span>Stock: {{ producto.stock }}</span>
                     <span>Vendidos: {{ producto.vendidos }}</span>
                 </div>
-                <button class="btn-vender" onclick="location.href='{{ url_for('vender', tipo='producto', id=producto.id) }}'">
-                    Vender Producto
+                <button class="btn-vender" onclick="location.href='{{ url_for('editar_producto', id=producto.id) }}'" style="background-color: #ffc107; color: #000;">
+                    Editar Producto
                 </button>
             </div>
             {% endfor %}
@@ -85,8 +85,8 @@
                     <span>Duración: {{ servicio.duracion }}</span>
                     <span>Vendidos: {{ servicio.vendidos }}</span>
                 </div>
-                <button class="btn-vender" onclick="location.href='{{ url_for('vender', tipo='servicio', id=servicio.id) }}'">
-                    Vender Servicio
+                <button class="btn-vender" onclick="location.href='{{ url_for('editar_servicio', id=servicio.id) }}'" style="background-color: #ffc107; color: #000;">
+                    Editar Servicio
                 </button>
             </div>
             {% endfor %}
